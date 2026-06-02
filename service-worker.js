@@ -1,4 +1,4 @@
-const CACHE_NAME = "cotizador-saircom-v3";
+const CACHE_NAME = "cotizador-saircom-v4";
 
 const APP_FILES = [
   "./",
@@ -8,7 +8,8 @@ const APP_FILES = [
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./libs/html2canvas.min.js",
-  "./libs/jspdf.umd.min.js"
+  "./libs/jspdf.umd.min.js",
+  "./data/equipos.json"
 ];
 
 self.addEventListener("install", event => {
