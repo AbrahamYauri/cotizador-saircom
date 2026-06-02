@@ -645,29 +645,55 @@
 }
 
     function normalizarTextoBusqueda(texto) {
-  return String(texto || "")
+    return String(texto || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toUpperCase()
-    .replace(/\s+/g, " ");
+    .replace(/[^A-Z0-9]/g, "");
     }
 
     function buscarEquipoBasePorModelo(modeloBuscado) {
-      const modelo = normalizarTextoBusqueda(modeloBuscado);
+  var modelo = normalizarTextoBusqueda(modeloBuscado);
 
-      if (!modelo) return null;
+  if (!modelo) return null;
 
-      return baseEquipos.find(eq => {
-        const modeloCagi = normalizarTextoBusqueda(eq.modelo_cagi);
-        const modeloBase = normalizarTextoBusqueda(eq.modelo_base);
-        const idEquipo = normalizarTextoBusqueda(eq.id_equipo);
+  if (!baseEquipos || baseEquipos.length === 0) {
+    alert("La base de equipos no se ha cargado. Verifique data/equipos.json o el caché de la PWA.");
+    return null;
+  }
 
-        return (
-          modeloCagi === modelo ||
-          modeloBase === modelo ||
-          idEquipo === modelo
-        );
-      });
-    }
+  var equipoExacto = baseEquipos.find(function(eq) {
+    var modeloCagi = normalizarTextoBusqueda(eq.modelo_cagi);
+    var modeloBase = normalizarTextoBusqueda(eq.modelo_base);
+    var idEquipo = normalizarTextoBusqueda(eq.id_equipo);
+
+    return (
+      modeloCagi === modelo ||
+      modeloBase === modelo ||
+      idEquipo === modelo
+    );
+  });
+
+  if (equipoExacto) return equipoExacto;
+
+  var equipoFlexible = baseEquipos.find(function(eq) {
+    var textoBusqueda = normalizarTextoBusqueda([
+      eq.id_equipo,
+      eq.familia,
+      eq.modelo_base,
+      eq.modelo_cagi,
+      eq.fabricante,
+      eq.tipo_velocidad_cagi,
+      eq.refrigeracion,
+      eq.texto_busqueda
+    ].filter(Boolean).join(" "));
+
+    return textoBusqueda.includes(modelo);
+  });
+
+  return equipoFlexible || null;
+}
 
     function cargarDatosEquipoDesdeBase(index, modeloBuscado) {
   const equipoBase = buscarEquipoBasePorModelo(modeloBuscado);
@@ -1186,28 +1212,35 @@ async function generarPDFDirecto() {
       });
 
       byId("equiposFormulario").addEventListener("click", function(event) {
-      var botonCargarBase = event.target.closest("[data-cargar-base]");
-      var botonEliminar = event.target.closest("[data-eliminar]");
-      var botonQuitarImagen = event.target.closest("[data-quitar-imagen]");
+  var botonCargarBase = event.target.closest("[data-cargar-base]");
+  var botonEliminar = event.target.closest("[data-eliminar]");
+  var botonQuitarImagen = event.target.closest("[data-quitar-imagen]");
 
-      if (botonCargarBase) {
-        var indexCargar = Number(botonCargarBase.getAttribute("data-cargar-base"));
-        cargarDatosEquipoDesdeBase(indexCargar, equipos[indexCargar].modeloBusqueda);
-        return;
-      }
+  if (botonCargarBase) {
+    var indexCargar = Number(botonCargarBase.getAttribute("data-cargar-base"));
 
-      if (botonEliminar) {
-        var indexEliminar = Number(botonEliminar.getAttribute("data-eliminar"));
-        eliminarEquipo(indexEliminar);
-        return;
-      }
+    var card = botonCargarBase.closest(".equipo-card");
+    var inputBusqueda = card.querySelector('[data-campo="modeloBusqueda"]');
+    var modeloSeleccionado = inputBusqueda ? inputBusqueda.value : "";
 
-      if (botonQuitarImagen) {
-        var indexImagen = Number(botonQuitarImagen.getAttribute("data-quitar-imagen"));
-        quitarImagenEquipo(indexImagen);
-        return;
-      }
-    });
+    equipos[indexCargar].modeloBusqueda = modeloSeleccionado;
+
+    cargarDatosEquipoDesdeBase(indexCargar, modeloSeleccionado);
+    return;
+  }
+
+  if (botonEliminar) {
+    var indexEliminar = Number(botonEliminar.getAttribute("data-eliminar"));
+    eliminarEquipo(indexEliminar);
+    return;
+  }
+
+  if (botonQuitarImagen) {
+    var indexImagen = Number(botonQuitarImagen.getAttribute("data-quitar-imagen"));
+    quitarImagenEquipo(indexImagen);
+    return;
+  }
+});
       byId("equiposFormulario").addEventListener("change", function(event) {
         var imgIndex = event.target.getAttribute("data-imagen");
         if (imgIndex !== null) cargarImagenEquipo(Number(imgIndex), event.target.files[0]);
