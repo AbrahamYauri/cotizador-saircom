@@ -529,27 +529,7 @@
       '<button class="btn-peligro" type="button" data-eliminar="' + index + '">Eliminar</button>' +
     '</div>' +
 
-    '<div class="campo">' +
-      '<label>Buscar en base CAGI por modelo</label>' +
-      '<div style="display: grid; grid-template-columns: 1fr auto; gap: 8px;">' +
-        '<input ' +
-          'type="text" ' +
-          'list="listaModelosEquipos" ' +
-          'value="' + escapeHtml(eq.modeloBusqueda || eq.modelo || "") + '" ' +
-          'placeholder="Ej: KRSP 125-115" ' +
-          'data-campo="modeloBusqueda" ' +
-          'data-index="' + index + '" ' +
-        '/>' +
-        '<button ' +
-          'class="btn-secundario" ' +
-          'type="button" ' +
-          'data-cargar-base="' + index + '"' +
-        '>' +
-          'Cargar' +
-        '</button>' +
-      '</div>' +
-      '<div class="aviso">Escriba o seleccione el modelo y presione Cargar.</div>' +
-    '</div>' +
+    crearFiltrosCompresorHTML(index, eq)  +
 
     '<div class="campo">' +
       '<label>Nombre del equipo</label>' +
@@ -618,31 +598,247 @@
     }
 
     function actualizarListaModelosEquipos() {
-  var datalist = byId("listaModelosEquipos");
+      var datalist = byId("listaModelosEquipos");
 
-  if (!datalist) return;
+      if (!datalist) return;
 
-  datalist.innerHTML = "";
+      datalist.innerHTML = "";
 
-  baseEquipos.forEach(function(eq) {
-    var modelo = eq.modelo_cagi || eq.modelo_base || eq.id_equipo;
+      baseEquipos.forEach(function(eq) {
+        var modelo = eq.modelo_cagi || eq.modelo_base || eq.id_equipo;
 
+        if (!modelo) return;
+
+        var option = document.createElement("option");
+        option.value = modelo;
+
+        var hp = eq.motor_nominal_hp ? eq.motor_nominal_hp + " HP" : "";
+        var presion = eq.presion_f_l_cagi_psig ? eq.presion_f_l_cagi_psig + " PSIG" : "";
+        var capacidad = eq.rated_capacity_at_full_load_operating_pressure_acfm
+          ? eq.rated_capacity_at_full_load_operating_pressure_acfm + " ACFM"
+          : "";
+
+        option.label = [hp, presion, capacidad].filter(Boolean).join(" | ");
+
+        datalist.appendChild(option);
+      });
+    }
+
+
+    function textoValor(valor) {
+  if (valor === null || valor === undefined) return "";
+  return String(valor).trim();
+}
+
+function modeloEquipoBase(eq) {
+  return eq.modelo_cagi || eq.modelo_base || eq.id_equipo || "";
+}
+
+function ordenarValores(a, b) {
+  var na = Number(a);
+  var nb = Number(b);
+
+  if (!isNaN(na) && !isNaN(nb)) {
+    return na - nb;
+  }
+
+  return String(a).localeCompare(String(b));
+}
+
+function obtenerValoresUnicos(lista, campo) {
+  var valores = [];
+
+  lista.forEach(function(eq) {
+    var valor = textoValor(eq[campo]);
+
+    if (valor && valores.indexOf(valor) === -1) {
+      valores.push(valor);
+    }
+  });
+
+  return valores.sort(ordenarValores);
+}
+
+function filtrarBasePorEquipo(eqFormulario, nivel) {
+  return baseEquipos.filter(function(eqBase) {
+    if (eqFormulario.filtroTipoVelocidad && textoValor(eqBase.tipo_velocidad_cagi) !== textoValor(eqFormulario.filtroTipoVelocidad)) {
+      return false;
+    }
+
+    if (nivel === "tipo") return true;
+
+    if (eqFormulario.filtroFamilia && textoValor(eqBase.familia) !== textoValor(eqFormulario.filtroFamilia)) {
+      return false;
+    }
+
+    if (nivel === "familia") return true;
+
+    if (eqFormulario.filtroHP && textoValor(eqBase.motor_nominal_hp) !== textoValor(eqFormulario.filtroHP)) {
+      return false;
+    }
+
+    if (nivel === "hp") return true;
+
+    if (eqFormulario.filtroPresion && textoValor(eqBase.presion_f_l_cagi_psig) !== textoValor(eqFormulario.filtroPresion)) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function crearOptions(valores, seleccionado, textoInicial) {
+  var html = '<option value="">' + textoInicial + '</option>';
+
+  valores.forEach(function(valor) {
+    var selected = textoValor(valor) === textoValor(seleccionado) ? " selected" : "";
+    html += '<option value="' + escapeHtml(valor) + '"' + selected + '>' + escapeHtml(valor) + '</option>';
+  });
+
+  return html;
+}
+
+function crearOptionsEquipos(lista, seleccionado) {
+  var html = '<option value="">Seleccione equipo propuesto</option>';
+
+  lista.forEach(function(eq) {
+    var modelo = modeloEquipoBase(eq);
     if (!modelo) return;
 
-    var option = document.createElement("option");
-    option.value = modelo;
-
     var hp = eq.motor_nominal_hp ? eq.motor_nominal_hp + " HP" : "";
-    var presion = eq.presion_f_l_cagi_psig ? eq.presion_f_l_cagi_psig + " PSIG" : "";
+    var presion = eq.presion_f_l_cagi_psig ? eq.presion_f_l_cagi_psig + " psig" : "";
     var capacidad = eq.rated_capacity_at_full_load_operating_pressure_acfm
       ? eq.rated_capacity_at_full_load_operating_pressure_acfm + " ACFM"
       : "";
 
-    option.label = [hp, presion, capacidad].filter(Boolean).join(" | ");
+    var texto = [
+      eq.modelo_base || "",
+      modelo,
+      hp,
+      presion,
+      capacidad
+    ].filter(Boolean).join(" | ");
 
-    datalist.appendChild(option);
+    var selected = textoValor(modelo) === textoValor(seleccionado) ? " selected" : "";
+
+    html += '<option value="' + escapeHtml(modelo) + '"' + selected + '>' + escapeHtml(texto) + '</option>';
   });
+
+  return html;
 }
+
+function crearFiltrosCompresorHTML(index, eq) {
+  var listaTipo = baseEquipos;
+  var tipos = obtenerValoresUnicos(listaTipo, "tipo_velocidad_cagi");
+
+  var listaFamilia = filtrarBasePorEquipo(eq, "tipo");
+  var familias = obtenerValoresUnicos(listaFamilia, "familia");
+
+  var listaHP = filtrarBasePorEquipo(eq, "familia");
+  var hps = obtenerValoresUnicos(listaHP, "motor_nominal_hp");
+
+  var listaPresion = filtrarBasePorEquipo(eq, "hp");
+  var presiones = obtenerValoresUnicos(listaPresion, "presion_f_l_cagi_psig");
+
+  var equiposPropuestos = filtrarBasePorEquipo(eq, "presion");
+
+  return '' +
+    '<div class="campo">' +
+      '<label>Filtro y selección</label>' +
+      '<div class="aviso">Seleccione primero tipo de velocidad, familia, motor y presión. Luego cargue el equipo propuesto.</div>' +
+    '</div>' +
+
+    '<div class="fila">' +
+      '<div class="campo">' +
+        '<label>Tipo de velocidad</label>' +
+        '<select data-filtro-equipo="filtroTipoVelocidad" data-index="' + index + '">' +
+          crearOptions(tipos, eq.filtroTipoVelocidad, "Seleccione tipo") +
+        '</select>' +
+      '</div>' +
+
+      '<div class="campo">' +
+        '<label>Familia</label>' +
+        '<select data-filtro-equipo="filtroFamilia" data-index="' + index + '">' +
+          crearOptions(familias, eq.filtroFamilia, "Seleccione familia") +
+        '</select>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="fila">' +
+      '<div class="campo">' +
+        '<label>Motor nominal [HP]</label>' +
+        '<select data-filtro-equipo="filtroHP" data-index="' + index + '">' +
+          crearOptions(hps, eq.filtroHP, "Seleccione HP") +
+        '</select>' +
+      '</div>' +
+
+      '<div class="campo">' +
+        '<label>Presión full carga [psig]</label>' +
+        '<select data-filtro-equipo="filtroPresion" data-index="' + index + '">' +
+          crearOptions(presiones, eq.filtroPresion, "Seleccione presión") +
+        '</select>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="campo">' +
+      '<label>Equipo propuesto</label>' +
+      '<select data-equipo-propuesto="' + index + '">' +
+        crearOptionsEquipos(equiposPropuestos, eq.equipoPropuesto || eq.modeloBusqueda || eq.modelo) +
+      '</select>' +
+      '<div class="aviso">Equipos encontrados: ' + equiposPropuestos.length + '</div>' +
+    '</div>' +
+
+    '<div class="acciones">' +
+      '<button class="btn-secundario" type="button" data-cargar-base="' + index + '">Cargar equipo seleccionado</button>' +
+    '</div>';
+}
+
+function aplicarCambioFiltroEquipo(index, filtro, valor) {
+  var eq = equipos[index];
+  if (!eq) return;
+
+  eq[filtro] = valor;
+
+  if (filtro === "filtroTipoVelocidad") {
+    eq.filtroFamilia = "";
+    eq.filtroHP = "";
+    eq.filtroPresion = "";
+    eq.equipoPropuesto = "";
+    eq.modeloBusqueda = "";
+  }
+
+  if (filtro === "filtroFamilia") {
+    eq.filtroHP = "";
+    eq.filtroPresion = "";
+    eq.equipoPropuesto = "";
+    eq.modeloBusqueda = "";
+  }
+
+  if (filtro === "filtroHP") {
+    eq.filtroPresion = "";
+    eq.equipoPropuesto = "";
+    eq.modeloBusqueda = "";
+  }
+
+  if (filtro === "filtroPresion") {
+    eq.equipoPropuesto = "";
+    eq.modeloBusqueda = "";
+  }
+
+  var candidatos = filtrarBasePorEquipo(eq, "presion");
+
+  if (candidatos.length === 1) {
+    var modelo = modeloEquipoBase(candidatos[0]);
+    eq.equipoPropuesto = modelo;
+    eq.modeloBusqueda = modelo;
+  }
+
+  renderEquiposFormulario();
+  actualizarVista();
+}
+
+
+
 
     function normalizarTextoBusqueda(texto) {
     return String(texto || "")
@@ -695,8 +891,8 @@
   return equipoFlexible || null;
 }
 
-    function cargarDatosEquipoDesdeBase(index, modeloBuscado) {
-  const equipoBase = buscarEquipoBasePorModelo(modeloBuscado);
+  function cargarDatosEquipoDesdeBase(index, modeloBuscado) {
+    const equipoBase = buscarEquipoBasePorModelo(modeloBuscado);
 
     if (!equipoBase) {
       alert("No se encontró el modelo en la base de datos.");
@@ -709,9 +905,16 @@
     equipos[index].caracteristicas = equipoBase.caracteristicas_cotizacion || "";
     equipos[index].modeloBusqueda = equipos[index].modelo;
 
+    equipos[index].filtroTipoVelocidad = equipoBase.tipo_velocidad_cagi || "";
+    equipos[index].filtroFamilia = equipoBase.familia || "";
+    equipos[index].filtroHP = textoValor(equipoBase.motor_nominal_hp);
+    equipos[index].filtroPresion = textoValor(equipoBase.presion_f_l_cagi_psig);
+    equipos[index].equipoPropuesto = equipos[index].modelo;
+
     renderEquiposFormulario();
     actualizarVista();
-    }
+  }
+
 
     function sincronizarEquiposDesdeFormulario() {
     var campos = document.querySelectorAll("#equiposFormulario [data-campo]");
@@ -735,6 +938,13 @@
     nombre: data.nombre || "",
     modelo: data.modelo || "",
     modeloBusqueda: data.modeloBusqueda || "",
+
+    filtroTipoVelocidad: data.filtroTipoVelocidad || "",
+    filtroFamilia: data.filtroFamilia || "",
+    filtroHP: data.filtroHP || "",
+    filtroPresion: data.filtroPresion || "",
+    equipoPropuesto: data.equipoPropuesto || "",
+
     cantidad: data.cantidad || 1,
     precio: data.precio || 0,
     caracteristicas: data.caracteristicas || "",
@@ -1253,20 +1463,41 @@ async function generarPDFDirecto() {
     }
   });
 
+
   formularioEquipos.addEventListener("change", function(event) {
-    var index = event.target.getAttribute("data-index");
-    var campo = event.target.getAttribute("data-campo");
-    var imgIndex = event.target.getAttribute("data-imagen");
+  var filtro = event.target.getAttribute("data-filtro-equipo");
 
-    if (index !== null && campo) {
-      equipos[Number(index)][campo] = event.target.value;
-      actualizarVista();
-    }
+  if (filtro) {
+    var indexFiltro = Number(event.target.getAttribute("data-index"));
+    aplicarCambioFiltroEquipo(indexFiltro, filtro, event.target.value);
+    return;
+  }
 
-    if (imgIndex !== null) {
-      cargarImagenEquipo(Number(imgIndex), event.target.files[0]);
-    }
-  });
+  var equipoPropuestoIndex = event.target.getAttribute("data-equipo-propuesto");
+
+  if (equipoPropuestoIndex !== null) {
+    var indexEquipo = Number(equipoPropuestoIndex);
+
+    equipos[indexEquipo].equipoPropuesto = event.target.value;
+    equipos[indexEquipo].modeloBusqueda = event.target.value;
+
+    actualizarVista();
+    return;
+  }
+
+  var index = event.target.getAttribute("data-index");
+  var campo = event.target.getAttribute("data-campo");
+  var imgIndex = event.target.getAttribute("data-imagen");
+
+  if (index !== null && campo) {
+    equipos[Number(index)][campo] = event.target.value;
+    actualizarVista();
+  }
+
+  if (imgIndex !== null) {
+    cargarImagenEquipo(Number(imgIndex), event.target.files[0]);
+  }
+});
 
   formularioEquipos.addEventListener("click", function(event) {
     var botonCargarBase = event.target.closest("[data-cargar-base]");
@@ -1274,17 +1505,21 @@ async function generarPDFDirecto() {
     var botonQuitarImagen = event.target.closest("[data-quitar-imagen]");
 
     if (botonCargarBase) {
-      var indexCargar = Number(botonCargarBase.getAttribute("data-cargar-base"));
+  var indexCargar = Number(botonCargarBase.getAttribute("data-cargar-base"));
 
-      var card = botonCargarBase.closest(".equipo-card");
-      var inputBusqueda = card.querySelector('[data-campo="modeloBusqueda"]');
-      var modeloSeleccionado = inputBusqueda ? inputBusqueda.value : "";
+  var card = botonCargarBase.closest(".equipo-card");
+  var selectorEquipo = card.querySelector("[data-equipo-propuesto]");
 
-      equipos[indexCargar].modeloBusqueda = modeloSeleccionado;
+  var modeloSeleccionado = selectorEquipo
+    ? selectorEquipo.value
+    : equipos[indexCargar].equipoPropuesto || equipos[indexCargar].modeloBusqueda || "";
 
-      cargarDatosEquipoDesdeBase(indexCargar, modeloSeleccionado);
-      return;
-    }
+  equipos[indexCargar].equipoPropuesto = modeloSeleccionado;
+  equipos[indexCargar].modeloBusqueda = modeloSeleccionado;
+
+  cargarDatosEquipoDesdeBase(indexCargar, modeloSeleccionado);
+  return;
+}
 
     if (botonEliminar) {
       var indexEliminar = Number(botonEliminar.getAttribute("data-eliminar"));
