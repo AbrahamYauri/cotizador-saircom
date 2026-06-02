@@ -713,22 +713,38 @@
     actualizarVista();
     }
 
+    function sincronizarEquiposDesdeFormulario() {
+    var campos = document.querySelectorAll("#equiposFormulario [data-campo]");
+
+    campos.forEach(function(input) {
+      var index = Number(input.getAttribute("data-index"));
+      var campo = input.getAttribute("data-campo");
+
+      if (!isNaN(index) && equipos[index] && campo) {
+        equipos[index][campo] = input.value;
+      }
+    });
+    }
 
     function agregarEquipo(data) {
-      data = data || {};
-      equipos.push({
-        nombre: data.nombre || "",
-        modelo: data.modelo || "",
-        modeloBusqueda: data.modeloBusqueda || "",
-        cantidad: data.cantidad || 1,
-        precio: data.precio || 0,
-        caracteristicas: data.caracteristicas || "",
-        descripcion: data.descripcion || "",
-        imagenBase64: data.imagenBase64 || ""
-      });
-      renderEquiposFormulario();
-      actualizarVista();
-    }
+  sincronizarEquiposDesdeFormulario();
+
+  data = data || {};
+
+  equipos.push({
+    nombre: data.nombre || "",
+    modelo: data.modelo || "",
+    modeloBusqueda: data.modeloBusqueda || "",
+    cantidad: data.cantidad || 1,
+    precio: data.precio || 0,
+    caracteristicas: data.caracteristicas || "",
+    descripcion: data.descripcion || "",
+    imagenBase64: data.imagenBase64 || ""
+  });
+
+  renderEquiposFormulario();
+  actualizarVista();
+  }
 
     function eliminarEquipo(index) {
       equipos.splice(index, 1);
@@ -795,6 +811,7 @@
     }
 
     function actualizarVista() {
+      sincronizarEquiposDesdeFormulario();
       byId("pvCotizacion").textContent = textoSeguro(valor("numeroCotizacion"));
       byId("pvFecha").textContent = "Lima " + byId("fechaAutomatica").value;
       byId("pvVendedor").textContent = textoSeguro(valor("vendedor"));
@@ -819,6 +836,7 @@
     }
 
     function guardarDatos() {
+      sincronizarEquiposDesdeFormulario();
       var data = {};
       camposTexto.forEach(function(id) { data[id] = byId(id).value; });
       data.equipos = equipos;
@@ -1096,6 +1114,7 @@
 
 
 async function generarPDFDirecto() {
+      sincronizarEquiposDesdeFormulario();
       actualizarVista();
       setEstadoPDF("Generando PDF en formato A4 fijo, espere unos segundos...", "");
 
@@ -1167,6 +1186,7 @@ async function generarPDFDirecto() {
     }
 
     function guardarPDFPorImpresion() {
+      sincronizarEquiposDesdeFormulario();
       actualizarVista();
       alert(
         "Modo impresión:\\n\\n" +
