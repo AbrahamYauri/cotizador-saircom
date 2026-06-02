@@ -485,9 +485,11 @@
     </main>
   </div>
 
+  <datalist id="listaModelosEquipos"></datalist>
   <script>
     var equipos = [];
     var firmaBase64 = "";
+    let baseEquipos = [];
     var camposTexto = ["numeroCotizacion", "cliente", "documento", "telefonoCliente", "direccion", "atencion", "vendedor", "cargoVendedor", "celularVendedor", "formaPago", "tiempoEntrega", "lugarEntrega", "validezOferta", "igv", "moneda"];
 
     function byId(id) { return document.getElementById(id); }
@@ -507,23 +509,85 @@
     }
 
     function crearCampoHTML(index, eq) {
-      var preview = "";
-      if (eq.imagenBase64) {
-        preview = '<div class="mini-preview"><img src="' + eq.imagenBase64 + '" alt="Vista previa equipo" /><div class="acciones" style="justify-content:center;"><button class="btn-peligro" type="button" data-quitar-imagen="' + index + '">Quitar imagen</button></div></div>';
-      } else {
-        preview = '<div class="aviso">Puede subir una foto o imagen referencial del equipo.</div>';
-      }
+  var preview = "";
 
-      return '' +
-        '<div class="titulo-equipo"><span>Equipo ' + (index + 1) + '</span><button class="btn-peligro" type="button" data-eliminar="' + index + '">Eliminar</button></div>' +
-        '<div class="campo"><label>Nombre del equipo</label><input type="text" value="' + escapeHtml(eq.nombre) + '" placeholder="Ej: Compresor de tornillo estacionario" data-campo="nombre" data-index="' + index + '" /></div>' +
-        '<div class="fila"><div class="campo"><label>Modelo / código</label><input type="text" value="' + escapeHtml(eq.modelo) + '" placeholder="Ej: KRSP 125-115" data-campo="modelo" data-index="' + index + '" /></div>' +
-        '<div class="campo"><label>Cantidad</label><input type="number" min="1" step="1" value="' + escapeHtml(eq.cantidad) + '" data-campo="cantidad" data-index="' + index + '" /></div></div>' +
-        '<div class="campo"><label>Precio unitario</label><input type="number" min="0" step="0.01" value="' + escapeHtml(eq.precio) + '" placeholder="Ej: 47258.28" data-campo="precio" data-index="' + index + '" /></div>' +
-        '<div class="campo"><label>Descripción comercial</label><textarea placeholder="Ej: Equipo con unidad compresora de una etapa, motor eléctrico de alta eficiencia..." data-campo="descripcion" data-index="' + index + '">' + escapeHtml(eq.descripcion) + '</textarea></div>' +
-        '<div class="campo"><label>Características técnicas</label><textarea placeholder="Ej: Capacidad: 613 CFM / Presión de operación: 100 - 115 PSIG" data-campo="caracteristicas" data-index="' + index + '">' + escapeHtml(eq.caracteristicas) + '</textarea></div>' +
-        '<div class="campo"><label>Imagen del equipo</label><input type="file" accept="image/*" data-imagen="' + index + '" />' + preview + '</div>';
-    }
+  if (eq.imagenBase64) {
+    preview =
+      '<div class="mini-preview">' +
+        '<img src="' + eq.imagenBase64 + '" alt="Vista previa equipo" />' +
+        '<div class="acciones" style="justify-content:center;">' +
+          '<button class="btn-peligro" type="button" data-quitar-imagen="' + index + '">Quitar imagen</button>' +
+        '</div>' +
+      '</div>';
+  } else {
+    preview = '<div class="aviso">Puede subir una foto o imagen referencial del equipo.</div>';
+  }
+
+  return '' +
+    '<div class="titulo-equipo">' +
+      '<span>Equipo ' + (index + 1) + '</span>' +
+      '<button class="btn-peligro" type="button" data-eliminar="' + index + '">Eliminar</button>' +
+    '</div>' +
+
+    '<div class="campo">' +
+      '<label>Buscar en base CAGI por modelo</label>' +
+      '<div style="display: grid; grid-template-columns: 1fr auto; gap: 8px;">' +
+        '<input ' +
+          'type="text" ' +
+          'list="listaModelosEquipos" ' +
+          'value="' + escapeHtml(eq.modeloBusqueda || eq.modelo || "") + '" ' +
+          'placeholder="Ej: KRSP 125-115" ' +
+          'data-campo="modeloBusqueda" ' +
+          'data-index="' + index + '" ' +
+        '/>' +
+        '<button ' +
+          'class="btn-secundario" ' +
+          'type="button" ' +
+          'data-cargar-base="' + index + '"' +
+        '>' +
+          'Cargar' +
+        '</button>' +
+      '</div>' +
+      '<div class="aviso">Escriba o seleccione el modelo y presione Cargar.</div>' +
+    '</div>' +
+
+    '<div class="campo">' +
+      '<label>Nombre del equipo</label>' +
+      '<input type="text" value="' + escapeHtml(eq.nombre) + '" placeholder="Ej: Compresor de tornillo estacionario" data-campo="nombre" data-index="' + index + '" />' +
+    '</div>' +
+
+    '<div class="fila">' +
+      '<div class="campo">' +
+        '<label>Modelo / código</label>' +
+        '<input type="text" value="' + escapeHtml(eq.modelo) + '" placeholder="Ej: KRSP 125-115" data-campo="modelo" data-index="' + index + '" />' +
+      '</div>' +
+      '<div class="campo">' +
+        '<label>Cantidad</label>' +
+        '<input type="number" min="1" step="1" value="' + escapeHtml(eq.cantidad) + '" data-campo="cantidad" data-index="' + index + '" />' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="campo">' +
+      '<label>Precio unitario</label>' +
+      '<input type="number" min="0" step="0.01" value="' + escapeHtml(eq.precio) + '" placeholder="Ej: 47258.28" data-campo="precio" data-index="' + index + '" />' +
+    '</div>' +
+
+    '<div class="campo">' +
+      '<label>Descripción comercial</label>' +
+      '<textarea placeholder="Ej: Equipo con unidad compresora de una etapa, motor eléctrico de alta eficiencia..." data-campo="descripcion" data-index="' + index + '">' + escapeHtml(eq.descripcion) + '</textarea>' +
+    '</div>' +
+
+    '<div class="campo">' +
+      '<label>Características técnicas</label>' +
+      '<textarea placeholder="Ej: Capacidad: 613 CFM / Presión de operación: 100 - 115 PSIG" data-campo="caracteristicas" data-index="' + index + '">' + escapeHtml(eq.caracteristicas) + '</textarea>' +
+    '</div>' +
+
+    '<div class="campo">' +
+      '<label>Imagen del equipo</label>' +
+      '<input type="file" accept="image/*" data-imagen="' + index + '" />' +
+      preview +
+    '</div>';
+}
 
     function renderEquiposFormulario() {
       var contenedor = byId("equiposFormulario");
@@ -536,11 +600,100 @@
       });
     }
 
+    async function cargarBaseEquipos() {
+      try {
+        const respuesta = await fetch("./data/equipos.json");
+
+        if (!respuesta.ok) {
+          throw new Error("No se pudo cargar data/equipos.json");
+        }
+
+        baseEquipos = await respuesta.json();
+
+        console.log("Base de equipos cargada:", baseEquipos.length);
+      } catch (error) {
+        console.error("Error cargando base de equipos:", error);
+        baseEquipos = [];
+      }
+    }
+
+    function actualizarListaModelosEquipos() {
+  var datalist = byId("listaModelosEquipos");
+
+  if (!datalist) return;
+
+  datalist.innerHTML = "";
+
+  baseEquipos.forEach(function(eq) {
+    var modelo = eq.modelo_cagi || eq.modelo_base || eq.id_equipo;
+
+    if (!modelo) return;
+
+    var option = document.createElement("option");
+    option.value = modelo;
+
+    var hp = eq.motor_nominal_hp ? eq.motor_nominal_hp + " HP" : "";
+    var presion = eq.presion_f_l_cagi_psig ? eq.presion_f_l_cagi_psig + " PSIG" : "";
+    var capacidad = eq.rated_capacity_at_full_load_operating_pressure_acfm
+      ? eq.rated_capacity_at_full_load_operating_pressure_acfm + " ACFM"
+      : "";
+
+    option.label = [hp, presion, capacidad].filter(Boolean).join(" | ");
+
+    datalist.appendChild(option);
+  });
+}
+
+    function normalizarTextoBusqueda(texto) {
+  return String(texto || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, " ");
+    }
+
+    function buscarEquipoBasePorModelo(modeloBuscado) {
+      const modelo = normalizarTextoBusqueda(modeloBuscado);
+
+      if (!modelo) return null;
+
+      return baseEquipos.find(eq => {
+        const modeloCagi = normalizarTextoBusqueda(eq.modelo_cagi);
+        const modeloBase = normalizarTextoBusqueda(eq.modelo_base);
+        const idEquipo = normalizarTextoBusqueda(eq.id_equipo);
+
+        return (
+          modeloCagi === modelo ||
+          modeloBase === modelo ||
+          idEquipo === modelo
+        );
+      });
+    }
+
+    function cargarDatosEquipoDesdeBase(index, modeloBuscado) {
+  const equipoBase = buscarEquipoBasePorModelo(modeloBuscado);
+
+    if (!equipoBase) {
+      alert("No se encontró el modelo en la base de datos.");
+      return;
+    }
+
+    equipos[index].nombre = "Compresor de tornillo estacionario";
+    equipos[index].modelo = equipoBase.modelo_cagi || equipoBase.modelo_base || "";
+    equipos[index].descripcion = equipoBase.descripcion_comercial || "";
+    equipos[index].caracteristicas = equipoBase.caracteristicas_cotizacion || "";
+    equipos[index].modeloBusqueda = equipos[index].modelo;
+
+    renderEquiposFormulario();
+    actualizarVista();
+    }
+
+
     function agregarEquipo(data) {
       data = data || {};
       equipos.push({
         nombre: data.nombre || "",
         modelo: data.modelo || "",
+        modeloBusqueda: data.modeloBusqueda || "",
         cantidad: data.cantidad || 1,
         precio: data.precio || 0,
         caracteristicas: data.caracteristicas || "",
@@ -1032,14 +1185,29 @@ async function generarPDFDirecto() {
         byId(id).addEventListener("change", actualizarVista);
       });
 
-      byId("equiposFormulario").addEventListener("input", function(event) {
-        var index = event.target.getAttribute("data-index");
-        var campo = event.target.getAttribute("data-campo");
-        if (index !== null && campo) {
-          equipos[Number(index)][campo] = event.target.value;
-          actualizarVista();
-        }
-      });
+      byId("equiposFormulario").addEventListener("click", function(event) {
+      var botonCargarBase = event.target.closest("[data-cargar-base]");
+      var botonEliminar = event.target.closest("[data-eliminar]");
+      var botonQuitarImagen = event.target.closest("[data-quitar-imagen]");
+
+      if (botonCargarBase) {
+        var indexCargar = Number(botonCargarBase.getAttribute("data-cargar-base"));
+        cargarDatosEquipoDesdeBase(indexCargar, equipos[indexCargar].modeloBusqueda);
+        return;
+      }
+
+      if (botonEliminar) {
+        var indexEliminar = Number(botonEliminar.getAttribute("data-eliminar"));
+        eliminarEquipo(indexEliminar);
+        return;
+      }
+
+      if (botonQuitarImagen) {
+        var indexImagen = Number(botonQuitarImagen.getAttribute("data-quitar-imagen"));
+        quitarImagenEquipo(indexImagen);
+        return;
+      }
+    });
       byId("equiposFormulario").addEventListener("change", function(event) {
         var imgIndex = event.target.getAttribute("data-imagen");
         if (imgIndex !== null) cargarImagenEquipo(Number(imgIndex), event.target.files[0]);
@@ -1052,19 +1220,26 @@ async function generarPDFDirecto() {
       });
     }
 
-    document.addEventListener("DOMContentLoaded", function() {
-      cargarFecha();
-      iniciarEventos();
-      agregarEquipo({
-        nombre: "Compresor de tornillo estacionario",
-        modelo: "KRSP 125-115",
-        cantidad: 1,
-        precio: 47258.28,
-        descripcion: "COMPRESOR DE TORNILLO ESTACIONARIO KAISHAN, equipo con unidad compresora de una etapa impulsado por motor eléctrico de alta eficiencia, refrigerado por aire. Incluye filtro de aire para trabajo pesado y cabina atenuadora de sonido. Equipo listo para operar.",
-        caracteristicas: "Capacidad: 613 CFM\nPresión de operación: 100 - 115 PSIG\nPotencia motor principal: 125 HP\nConexión de descarga: NPT 2 pulgadas"
-      });
-      actualizarVista();
-    });
+    document.addEventListener("DOMContentLoaded", async function() {
+  cargarFecha();
+  iniciarEventos();
+
+  await cargarBaseEquipos();
+  actualizarListaModelosEquipos();
+
+  agregarEquipo({
+    nombre: "Compresor de tornillo estacionario",
+    modelo: "KRSP 125-115",
+    modeloBusqueda: "KRSP 125-115",
+    cantidad: 1,
+    precio: 47258.28,
+    descripcion: "COMPRESOR DE TORNILLO ESTACIONARIO KAISHAN, equipo con unidad compresora de una etapa impulsado por motor eléctrico de alta eficiencia, refrigerado por aire. Incluye filtro de aire para trabajo pesado y cabina atenuadora de sonido. Equipo listo para operar.",
+    caracteristicas: "Capacidad: 613 CFM\nPresión de operación: 100 - 115 PSIG\nPotencia motor principal: 125 HP\nConexión de descarga: NPT 2 pulgadas"
+  });
+
+  actualizarVista();
+  });
+
   </script>
   <script>
   if ("serviceWorker" in navigator) {
