@@ -1,4 +1,4 @@
-const CACHE_NAME = "cotizador-saircom-v2";
+const CACHE_NAME = "cotizador-saircom-v3";
 
 const APP_FILES = [
   "./",
