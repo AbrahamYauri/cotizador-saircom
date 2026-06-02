@@ -1210,68 +1210,95 @@ async function generarPDFDirecto() {
     function cargarFecha() { byId("fechaAutomatica").value = fechaActualLima(); }
 
     function iniciarEventos() {
-      byId("btnAgregarEquipo").addEventListener("click", function() { agregarEquipo(); });
-      byId("btnActualizar").addEventListener("click", actualizarVista);
-      byId("btnGuardarDatos").addEventListener("click", guardarDatos);
-      byId("btnCargarDatos").addEventListener("click", cargarDatos);
-      byId("btnLimpiar").addEventListener("click", limpiarTodo);
-      byId("btnGuardarPDF").addEventListener("click", guardarPDF);
-      byId("btnGuardarPDFImpresion").addEventListener("click", guardarPDFPorImpresion);
+  byId("btnAgregarEquipo").addEventListener("click", function() {
+    agregarEquipo();
+  });
 
-      byId("firmaFoto").addEventListener("change", function(event) {
-        var archivo = event.target.files[0];
-        if (!archivo) return;
-        var reader = new FileReader();
-        reader.onload = function(e) { firmaBase64 = e.target.result; actualizarVista(); };
-        reader.readAsDataURL(archivo);
-      });
+  byId("btnActualizar").addEventListener("click", actualizarVista);
+  byId("btnGuardarDatos").addEventListener("click", guardarDatos);
+  byId("btnCargarDatos").addEventListener("click", cargarDatos);
+  byId("btnLimpiar").addEventListener("click", limpiarTodo);
+  byId("btnGuardarPDF").addEventListener("click", guardarPDF);
+  byId("btnGuardarPDFImpresion").addEventListener("click", guardarPDFPorImpresion);
 
-      camposTexto.forEach(function(id) {
-        byId(id).addEventListener("input", actualizarVista);
-        byId(id).addEventListener("change", actualizarVista);
-      });
+  byId("firmaFoto").addEventListener("change", function(event) {
+    var archivo = event.target.files[0];
 
-      byId("equiposFormulario").addEventListener("click", function(event) {
-  var botonCargarBase = event.target.closest("[data-cargar-base]");
-  var botonEliminar = event.target.closest("[data-eliminar]");
-  var botonQuitarImagen = event.target.closest("[data-quitar-imagen]");
+    if (!archivo) return;
 
-  if (botonCargarBase) {
-    var indexCargar = Number(botonCargarBase.getAttribute("data-cargar-base"));
+    var reader = new FileReader();
 
-    var card = botonCargarBase.closest(".equipo-card");
-    var inputBusqueda = card.querySelector('[data-campo="modeloBusqueda"]');
-    var modeloSeleccionado = inputBusqueda ? inputBusqueda.value : "";
+    reader.onload = function(e) {
+      firmaBase64 = e.target.result;
+      actualizarVista();
+    };
 
-    equipos[indexCargar].modeloBusqueda = modeloSeleccionado;
+    reader.readAsDataURL(archivo);
+  });
 
-    cargarDatosEquipoDesdeBase(indexCargar, modeloSeleccionado);
-    return;
-  }
+  camposTexto.forEach(function(id) {
+    byId(id).addEventListener("input", actualizarVista);
+    byId(id).addEventListener("change", actualizarVista);
+  });
 
-  if (botonEliminar) {
-    var indexEliminar = Number(botonEliminar.getAttribute("data-eliminar"));
-    eliminarEquipo(indexEliminar);
-    return;
-  }
+  var formularioEquipos = byId("equiposFormulario");
 
-  if (botonQuitarImagen) {
-    var indexImagen = Number(botonQuitarImagen.getAttribute("data-quitar-imagen"));
-    quitarImagenEquipo(indexImagen);
-    return;
-  }
-});
-      byId("equiposFormulario").addEventListener("change", function(event) {
-        var imgIndex = event.target.getAttribute("data-imagen");
-        if (imgIndex !== null) cargarImagenEquipo(Number(imgIndex), event.target.files[0]);
-      });
-      byId("equiposFormulario").addEventListener("click", function(event) {
-        var eliminar = event.target.getAttribute("data-eliminar");
-        var quitar = event.target.getAttribute("data-quitar-imagen");
-        if (eliminar !== null) eliminarEquipo(Number(eliminar));
-        if (quitar !== null) quitarImagenEquipo(Number(quitar));
-      });
+  formularioEquipos.addEventListener("input", function(event) {
+    var index = event.target.getAttribute("data-index");
+    var campo = event.target.getAttribute("data-campo");
+
+    if (index !== null && campo) {
+      equipos[Number(index)][campo] = event.target.value;
+      actualizarVista();
     }
+  });
+
+  formularioEquipos.addEventListener("change", function(event) {
+    var index = event.target.getAttribute("data-index");
+    var campo = event.target.getAttribute("data-campo");
+    var imgIndex = event.target.getAttribute("data-imagen");
+
+    if (index !== null && campo) {
+      equipos[Number(index)][campo] = event.target.value;
+      actualizarVista();
+    }
+
+    if (imgIndex !== null) {
+      cargarImagenEquipo(Number(imgIndex), event.target.files[0]);
+    }
+  });
+
+  formularioEquipos.addEventListener("click", function(event) {
+    var botonCargarBase = event.target.closest("[data-cargar-base]");
+    var botonEliminar = event.target.closest("[data-eliminar]");
+    var botonQuitarImagen = event.target.closest("[data-quitar-imagen]");
+
+    if (botonCargarBase) {
+      var indexCargar = Number(botonCargarBase.getAttribute("data-cargar-base"));
+
+      var card = botonCargarBase.closest(".equipo-card");
+      var inputBusqueda = card.querySelector('[data-campo="modeloBusqueda"]');
+      var modeloSeleccionado = inputBusqueda ? inputBusqueda.value : "";
+
+      equipos[indexCargar].modeloBusqueda = modeloSeleccionado;
+
+      cargarDatosEquipoDesdeBase(indexCargar, modeloSeleccionado);
+      return;
+    }
+
+    if (botonEliminar) {
+      var indexEliminar = Number(botonEliminar.getAttribute("data-eliminar"));
+      eliminarEquipo(indexEliminar);
+      return;
+    }
+
+    if (botonQuitarImagen) {
+      var indexImagen = Number(botonQuitarImagen.getAttribute("data-quitar-imagen"));
+      quitarImagenEquipo(indexImagen);
+      return;
+    }
+  });
+  }
 
     document.addEventListener("DOMContentLoaded", async function() {
   cargarFecha();
