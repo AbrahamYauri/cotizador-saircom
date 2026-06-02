@@ -489,7 +489,8 @@
   <script>
     var equipos = [];
     var firmaBase64 = "";
-    let baseEquipos = [];
+    var baseEquipos = [];
+    var baseSecadores = [];
     var camposTexto = ["numeroCotizacion", "cliente", "documento", "telefonoCliente", "direccion", "atencion", "vendedor", "cargoVendedor", "celularVendedor", "formaPago", "tiempoEntrega", "lugarEntrega", "validezOferta", "igv", "moneda"];
 
     function byId(id) { return document.getElementById(id); }
@@ -508,6 +509,145 @@
       return moneda + " " + numero.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
+    function modeloSecadorBase(secador) {
+  return secador.modelo || secador.modelo_base || secador.id_equipo || "";
+}
+
+function filtrarSecadoresPorEquipo(eqFormulario, nivel) {
+  return baseSecadores.filter(function(secador) {
+    if (eqFormulario.filtroCaudalSecador && textoValor(secador.caudal_nominal_m3h) !== textoValor(eqFormulario.filtroCaudalSecador)) {
+      return false;
+    }
+
+    if (nivel === "caudal") return true;
+
+    if (eqFormulario.filtroVoltajeSecador && textoValor(secador.voltaje) !== textoValor(eqFormulario.filtroVoltajeSecador)) {
+      return false;
+    }
+
+    if (nivel === "voltaje") return true;
+
+    if (eqFormulario.filtroConexionSecador && textoValor(secador.conexion_aire) !== textoValor(eqFormulario.filtroConexionSecador)) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function crearOptionsSecadores(lista, seleccionado) {
+  var html = '<option value="">Seleccione secador propuesto</option>';
+
+  lista.forEach(function(secador) {
+    var modelo = modeloSecadorBase(secador);
+    if (!modelo) return;
+
+    var caudal = secador.caudal_nominal_m3h ? secador.caudal_nominal_m3h + " m³/h" : "";
+    var voltaje = secador.voltaje || "";
+    var conexion = secador.conexion_aire || "";
+
+    var texto = [
+      modelo,
+      caudal,
+      voltaje,
+      conexion
+    ].filter(Boolean).join(" | ");
+
+    var selected = textoValor(modelo) === textoValor(seleccionado) ? " selected" : "";
+
+    html += '<option value="' + escapeHtml(modelo) + '"' + selected + '>' + escapeHtml(texto) + '</option>';
+  });
+
+  return html;
+}
+
+function crearFiltrosSecadorHTML(index, eq) {
+  var caudales = obtenerValoresUnicos(baseSecadores, "caudal_nominal_m3h");
+
+  var listaVoltaje = filtrarSecadoresPorEquipo(eq, "caudal");
+  var voltajes = obtenerValoresUnicos(listaVoltaje, "voltaje");
+
+  var listaConexion = filtrarSecadoresPorEquipo(eq, "voltaje");
+  var conexiones = obtenerValoresUnicos(listaConexion, "conexion_aire");
+
+  var secadoresPropuestos = filtrarSecadoresPorEquipo(eq, "conexion");
+
+  return '' +
+    '<div class="campo">' +
+      '<label>Filtro y selección de secador</label>' +
+      '<div class="aviso">Seleccione caudal, voltaje y conexión. Luego cargue el secador propuesto.</div>' +
+    '</div>' +
+
+    '<div class="campo">' +
+      '<label>Caudal nominal [m³/h]</label>' +
+      '<select data-filtro-secador="filtroCaudalSecador" data-index="' + index + '">' +
+        crearOptions(caudales, eq.filtroCaudalSecador, "Seleccione caudal") +
+      '</select>' +
+    '</div>' +
+
+    '<div class="campo">' +
+      '<label>Voltaje</label>' +
+      '<select data-filtro-secador="filtroVoltajeSecador" data-index="' + index + '">' +
+        crearOptions(voltajes, eq.filtroVoltajeSecador, "Seleccione voltaje") +
+      '</select>' +
+    '</div>' +
+
+    '<div class="campo">' +
+      '<label>Conexión de aire</label>' +
+      '<select data-filtro-secador="filtroConexionSecador" data-index="' + index + '">' +
+        crearOptions(conexiones, eq.filtroConexionSecador, "Seleccione conexión") +
+      '</select>' +
+    '</div>' +
+
+    '<div class="campo">' +
+      '<label>Secador propuesto</label>' +
+      '<select data-secador-propuesto="' + index + '">' +
+        crearOptionsSecadores(secadoresPropuestos, eq.secadorPropuesto || eq.modeloBusqueda || eq.modelo) +
+      '</select>' +
+      '<div class="aviso">Secadores encontrados: ' + secadoresPropuestos.length + '</div>' +
+    '</div>' +
+
+    '<div class="acciones">' +
+      '<button class="btn-secundario" type="button" data-cargar-base="' + index + '">Cargar equipo seleccionado</button>' +
+    '</div>';
+}
+
+function aplicarCambioFiltroSecador(index, filtro, valor) {
+  var eq = equipos[index];
+  if (!eq) return;
+
+  eq[filtro] = valor;
+
+  if (filtro === "filtroCaudalSecador") {
+    eq.filtroVoltajeSecador = "";
+    eq.filtroConexionSecador = "";
+    eq.secadorPropuesto = "";
+    eq.modeloBusqueda = "";
+  }
+
+  if (filtro === "filtroVoltajeSecador") {
+    eq.filtroConexionSecador = "";
+    eq.secadorPropuesto = "";
+    eq.modeloBusqueda = "";
+  }
+
+  if (filtro === "filtroConexionSecador") {
+    eq.secadorPropuesto = "";
+    eq.modeloBusqueda = "";
+  }
+
+  var candidatos = filtrarSecadoresPorEquipo(eq, "conexion");
+
+  if (candidatos.length === 1) {
+    var modelo = modeloSecadorBase(candidatos[0]);
+    eq.secadorPropuesto = modelo;
+    eq.modeloBusqueda = modelo;
+  }
+
+  renderEquiposFormulario();
+  actualizarVista();
+}
+
     function crearCampoHTML(index, eq) {
   var preview = "";
 
@@ -524,12 +664,27 @@
   }
 
   return '' +
-    '<div class="titulo-equipo">' +
-      '<span>Equipo ' + (index + 1) + '</span>' +
-      '<button class="btn-peligro" type="button" data-eliminar="' + index + '">Eliminar</button>' +
-    '</div>' +
+  '<div class="titulo-equipo">' +
+    '<span>Equipo ' + (index + 1) + '</span>' +
+    '<button class="btn-peligro" type="button" data-eliminar="' + index + '">Eliminar</button>' +
+  '</div>' +
 
-    crearFiltrosCompresorHTML(index, eq)  +
+  '<div class="campo">' +
+    '<label>Tipo de equipo</label>' +
+    '<select data-tipo-equipo="' + index + '">' +
+      '<option value="compresor"' + ((eq.tipoEquipo || "compresor") === "compresor" ? " selected" : "") + '>Compresor</option>' +
+      '<option value="secador"' + (eq.tipoEquipo === "secador" ? " selected" : "") + '>Secador refrigerativo</option>' +
+      '<option value="manual"' + (eq.tipoEquipo === "manual" ? " selected" : "") + '>Manual / otro equipo</option>' +
+    '</select>' +
+  '</div>' +
+
+  (
+    (eq.tipoEquipo || "compresor") === "compresor"
+      ? crearFiltrosCompresorHTML(index, eq)
+      : eq.tipoEquipo === "secador"
+        ? crearFiltrosSecadorHTML(index, eq)
+        : '<div class="aviso">Modo manual: complete directamente nombre, modelo, precio, descripción y características.</div>'
+  ) +
 
     '<div class="campo">' +
       '<label>Nombre del equipo</label>' +
@@ -594,6 +749,23 @@
       } catch (error) {
         console.error("Error cargando base de equipos:", error);
         baseEquipos = [];
+      }
+    }
+
+    async function cargarBaseSecadores() {
+      try {
+        const respuesta = await fetch("./data/secadores.json");
+
+        if (!respuesta.ok) {
+          throw new Error("No se pudo cargar data/secadores.json");
+        }
+
+        baseSecadores = await respuesta.json();
+
+        console.log("Base de secadores cargada:", baseSecadores.length);
+      } catch (error) {
+        console.error("Error cargando base de secadores:", error);
+        baseSecadores = [];
       }
     }
 
@@ -849,6 +1021,73 @@ function aplicarCambioFiltroEquipo(index, filtro, valor) {
     .replace(/[^A-Z0-9]/g, "");
     }
 
+
+    function buscarSecadorBasePorModelo(modeloBuscado) {
+  var modelo = normalizarTextoBusqueda(modeloBuscado);
+
+  if (!modelo) return null;
+
+  if (!baseSecadores || baseSecadores.length === 0) {
+    alert("La base de secadores no se ha cargado. Verifique data/secadores.json o el caché de la PWA.");
+    return null;
+  }
+
+  var secadorExacto = baseSecadores.find(function(secador) {
+    var modeloSecador = normalizarTextoBusqueda(secador.modelo);
+    var modeloBase = normalizarTextoBusqueda(secador.modelo_base);
+    var idEquipo = normalizarTextoBusqueda(secador.id_equipo);
+
+    return (
+      modeloSecador === modelo ||
+      modeloBase === modelo ||
+      idEquipo === modelo
+    );
+  });
+
+  if (secadorExacto) return secadorExacto;
+
+  var secadorFlexible = baseSecadores.find(function(secador) {
+    var textoBusqueda = normalizarTextoBusqueda([
+      secador.id_equipo,
+      secador.modelo,
+      secador.modelo_base,
+      secador.caudal_nominal_m3h,
+      secador.voltaje,
+      secador.conexion_aire,
+      secador.texto_busqueda
+    ].filter(Boolean).join(" "));
+
+    return textoBusqueda.includes(modelo);
+  });
+
+  return secadorFlexible || null;
+}
+
+function cargarDatosSecadorDesdeBase(index, modeloBuscado) {
+  var secador = buscarSecadorBasePorModelo(modeloBuscado);
+
+  if (!secador) {
+    alert("No se encontró el secador en la base de datos.");
+    return;
+  }
+
+  equipos[index].tipoEquipo = "secador";
+  equipos[index].nombre = "Secador refrigerativo";
+  equipos[index].modelo = secador.modelo || secador.modelo_base || "";
+  equipos[index].descripcion = secador.descripcion_comercial || "";
+  equipos[index].caracteristicas = secador.caracteristicas_cotizacion || "";
+  equipos[index].modeloBusqueda = equipos[index].modelo;
+
+  equipos[index].filtroCaudalSecador = textoValor(secador.caudal_nominal_m3h);
+  equipos[index].filtroVoltajeSecador = secador.voltaje || "";
+  equipos[index].filtroConexionSecador = secador.conexion_aire || "";
+  equipos[index].secadorPropuesto = equipos[index].modelo;
+
+  renderEquiposFormulario();
+  actualizarVista();
+}
+
+
     function buscarEquipoBasePorModelo(modeloBuscado) {
   var modelo = normalizarTextoBusqueda(modeloBuscado);
 
@@ -892,28 +1131,43 @@ function aplicarCambioFiltroEquipo(index, filtro, valor) {
 }
 
   function cargarDatosEquipoDesdeBase(index, modeloBuscado) {
-    const equipoBase = buscarEquipoBasePorModelo(modeloBuscado);
+  var eqFormulario = equipos[index];
 
-    if (!equipoBase) {
-      alert("No se encontró el modelo en la base de datos.");
-      return;
-    }
+  if (!eqFormulario) return;
 
-    equipos[index].nombre = "Compresor de tornillo estacionario";
-    equipos[index].modelo = equipoBase.modelo_cagi || equipoBase.modelo_base || "";
-    equipos[index].descripcion = equipoBase.descripcion_comercial || "";
-    equipos[index].caracteristicas = equipoBase.caracteristicas_cotizacion || "";
-    equipos[index].modeloBusqueda = equipos[index].modelo;
-
-    equipos[index].filtroTipoVelocidad = equipoBase.tipo_velocidad_cagi || "";
-    equipos[index].filtroFamilia = equipoBase.familia || "";
-    equipos[index].filtroHP = textoValor(equipoBase.motor_nominal_hp);
-    equipos[index].filtroPresion = textoValor(equipoBase.presion_f_l_cagi_psig);
-    equipos[index].equipoPropuesto = equipos[index].modelo;
-
-    renderEquiposFormulario();
-    actualizarVista();
+  if (eqFormulario.tipoEquipo === "secador") {
+    cargarDatosSecadorDesdeBase(index, modeloBuscado);
+    return;
   }
+
+  if (eqFormulario.tipoEquipo === "manual") {
+    actualizarVista();
+    return;
+  }
+
+  var equipoBase = buscarEquipoBasePorModelo(modeloBuscado);
+
+  if (!equipoBase) {
+    alert("No se encontró el compresor en la base de datos.");
+    return;
+  }
+
+  equipos[index].tipoEquipo = "compresor";
+  equipos[index].nombre = "Compresor de tornillo estacionario";
+  equipos[index].modelo = equipoBase.modelo_cagi || equipoBase.modelo_base || "";
+  equipos[index].descripcion = equipoBase.descripcion_comercial || "";
+  equipos[index].caracteristicas = equipoBase.caracteristicas_cotizacion || "";
+  equipos[index].modeloBusqueda = equipos[index].modelo;
+
+  equipos[index].filtroTipoVelocidad = equipoBase.tipo_velocidad_cagi || "";
+  equipos[index].filtroFamilia = equipoBase.familia || "";
+  equipos[index].filtroHP = textoValor(equipoBase.motor_nominal_hp);
+  equipos[index].filtroPresion = textoValor(equipoBase.presion_f_l_cagi_psig);
+  equipos[index].equipoPropuesto = equipos[index].modelo;
+
+  renderEquiposFormulario();
+  actualizarVista();
+}
 
 
     function sincronizarEquiposDesdeFormulario() {
@@ -944,6 +1198,11 @@ function aplicarCambioFiltroEquipo(index, filtro, valor) {
     filtroHP: data.filtroHP || "",
     filtroPresion: data.filtroPresion || "",
     equipoPropuesto: data.equipoPropuesto || "",
+
+    filtroCaudalSecador: data.filtroCaudalSecador || "",
+    filtroVoltajeSecador: data.filtroVoltajeSecador || "",
+    filtroConexionSecador: data.filtroConexionSecador || "",
+    secadorPropuesto: data.secadorPropuesto || "",
 
     cantidad: data.cantidad || 1,
     precio: data.precio || 0,
@@ -1465,6 +1724,57 @@ async function generarPDFDirecto() {
 
 
   formularioEquipos.addEventListener("change", function(event) {
+
+    var tipoEquipoIndex = event.target.getAttribute("data-tipo-equipo");
+
+if (tipoEquipoIndex !== null) {
+  var indexTipo = Number(tipoEquipoIndex);
+  var nuevoTipo = event.target.value;
+
+  equipos[indexTipo].tipoEquipo = nuevoTipo;
+
+  equipos[indexTipo].modeloBusqueda = "";
+  equipos[indexTipo].equipoPropuesto = "";
+  equipos[indexTipo].secadorPropuesto = "";
+
+  equipos[indexTipo].nombre = "";
+  equipos[indexTipo].modelo = "";
+  equipos[indexTipo].descripcion = "";
+  equipos[indexTipo].caracteristicas = "";
+
+  if (nuevoTipo === "compresor") {
+    equipos[indexTipo].nombre = "Compresor de tornillo estacionario";
+  }
+
+  if (nuevoTipo === "secador") {
+    equipos[indexTipo].nombre = "Secador refrigerativo";
+  }
+
+  renderEquiposFormulario();
+  actualizarVista();
+  return;
+}
+
+var filtroSecador = event.target.getAttribute("data-filtro-secador");
+
+if (filtroSecador) {
+  var indexFiltroSecador = Number(event.target.getAttribute("data-index"));
+  aplicarCambioFiltroSecador(indexFiltroSecador, filtroSecador, event.target.value);
+  return;
+}
+
+var secadorPropuestoIndex = event.target.getAttribute("data-secador-propuesto");
+
+if (secadorPropuestoIndex !== null) {
+  var indexSecador = Number(secadorPropuestoIndex);
+
+  equipos[indexSecador].secadorPropuesto = event.target.value;
+  equipos[indexSecador].modeloBusqueda = event.target.value;
+
+  actualizarVista();
+  return;
+}
+
   var filtro = event.target.getAttribute("data-filtro-equipo");
 
   if (filtro) {
@@ -1508,13 +1818,22 @@ async function generarPDFDirecto() {
   var indexCargar = Number(botonCargarBase.getAttribute("data-cargar-base"));
 
   var card = botonCargarBase.closest(".equipo-card");
-  var selectorEquipo = card.querySelector("[data-equipo-propuesto]");
 
-  var modeloSeleccionado = selectorEquipo
-    ? selectorEquipo.value
-    : equipos[indexCargar].equipoPropuesto || equipos[indexCargar].modeloBusqueda || "";
+  var selectorCompresor = card.querySelector("[data-equipo-propuesto]");
+  var selectorSecador = card.querySelector("[data-secador-propuesto]");
 
-  equipos[indexCargar].equipoPropuesto = modeloSeleccionado;
+  var modeloSeleccionado = "";
+
+  if (equipos[indexCargar].tipoEquipo === "secador") {
+    modeloSeleccionado = selectorSecador
+      ? selectorSecador.value
+      : equipos[indexCargar].secadorPropuesto || equipos[indexCargar].modeloBusqueda || "";
+  } else {
+    modeloSeleccionado = selectorCompresor
+      ? selectorCompresor.value
+      : equipos[indexCargar].equipoPropuesto || equipos[indexCargar].modeloBusqueda || "";
+  }
+
   equipos[indexCargar].modeloBusqueda = modeloSeleccionado;
 
   cargarDatosEquipoDesdeBase(indexCargar, modeloSeleccionado);
@@ -1535,25 +1854,29 @@ async function generarPDFDirecto() {
   });
   }
 
-    document.addEventListener("DOMContentLoaded", async function() {
+  document.addEventListener("DOMContentLoaded", async function() {
   cargarFecha();
   iniciarEventos();
 
   await cargarBaseEquipos();
-  actualizarListaModelosEquipos();
+  await cargarBaseSecadores();
+
+  if (typeof actualizarListaModelosEquipos === "function") {
+    actualizarListaModelosEquipos();
+  }
 
   agregarEquipo({
+    tipoEquipo: "compresor",
     nombre: "Compresor de tornillo estacionario",
-    modelo: "KRSP 125-115",
-    modeloBusqueda: "KRSP 125-115",
+    modelo: "",
     cantidad: 1,
-    precio: 47258.28,
-    descripcion: "COMPRESOR DE TORNILLO ESTACIONARIO KAISHAN, equipo con unidad compresora de una etapa impulsado por motor eléctrico de alta eficiencia, refrigerado por aire. Incluye filtro de aire para trabajo pesado y cabina atenuadora de sonido. Equipo listo para operar.",
-    caracteristicas: "Capacidad: 613 CFM\nPresión de operación: 100 - 115 PSIG\nPotencia motor principal: 125 HP\nConexión de descarga: NPT 2 pulgadas"
+    precio: 0,
+    descripcion: "",
+    caracteristicas: ""
   });
 
   actualizarVista();
-  });
+});
 
   </script>
   <script>
