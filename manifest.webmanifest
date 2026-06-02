@@ -1,7 +1,7 @@
 {
   "name": "Generador de Cotización SAIRCOM",
   "short_name": "Cotizador",
-  "description": "Aplicación para generar cotizaciones comerciales de SAIRCOM.",
+  "description": "Aplicación de cotización desarrollada por Abraham Yauri - 934331922.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
